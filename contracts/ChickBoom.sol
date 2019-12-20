@@ -3,93 +3,84 @@ pragma solidity ^0.5.11;
 
 contract ChickBoom {
 
-    uint8 private STATE_NOT_ACTIVE = 0;
+    uint8 private STATE_STOPPED = 0;
     uint8 private STATE_TICKET_SELLING = 1;
 
-    address payable private _owner;
-    uint256 private _ticket_price;
-    uint32 private _tickets_count;
-    uint32 private _sold_tickets;
-    uint8 private _lottery_state = STATE_NOT_ACTIVE;
+    address payable private owner;
+    uint256 private ticket_price;
+    uint32 private tickets_count;
+    uint32 private sold_tickets = 0;
+    uint8 private lottery_state = STATE_STOPPED;
 
-    address[] private _players;
+    address[] private players;
 
     modifier only_owner() {
-        require(msg.sender == _owner, "Access error");
+        require(msg.sender == owner, "Need owner permission");
         _;
     }
 
-    constructor() public {
-        _owner = msg.sender;
-        _ticket_price = 500000000000000000;
-        _tickets_count = 1000;
-        _sold_tickets = 0;
-        _players = new address[](_tickets_count);
-    }
-
-    function change_ticket_price(uint256 new_price) public only_owner {
-        require(_lottery_state == STATE_NOT_ACTIVE, "Lottery already started");
-        _ticket_price = new_price;
-    }
-
-    function change_tickets_count(uint32 new_count) public only_owner {
-        require(_lottery_state == STATE_NOT_ACTIVE, "Lottery already started");
-        _tickets_count = new_count;
-        _sold_tickets = 0;
-        _players = new address[](_tickets_count);
-    }
-
-    function start_lottery() public payable only_owner {
-        require(_lottery_state == STATE_TICKET_SELLING, "Lottery not started");
-        require(_sold_tickets > 0, "Not sold tickets");
-        uint cush = _ticket_price * _sold_tickets;
-        uint winner_id = (block.timestamp-1)%(_sold_tickets);
-        address payable winner_addres = address(uint160(_players[winner_id]));
-        winner_addres.transfer(cush);
-        _lottery_state = STATE_NOT_ACTIVE;
-        _sold_tickets = 0;
-        _players = new address[](_tickets_count);
-    }
-
-    function reward() public only_owner {
-        require(_lottery_state == STATE_TICKET_SELLING, "Lottery not started");
-        for (uint32 i=0; i<_players.length; i++) {
-            address payable participant_addres = address(uint160(_players[i]));
-            participant_addres.transfer(_ticket_price);
-        }
-        _lottery_state = STATE_NOT_ACTIVE;
-        _sold_tickets = 0;
-    }
-
-    function start_tickets_selling() public only_owner {
-        _lottery_state = STATE_TICKET_SELLING;
+    constructor(uint32 new_tickets_count, uint256 new_ticket_price) public {
+        owner = msg.sender;
+        tickets_count = new_tickets_count;
+        ticket_price = new_ticket_price;
+        players = new address[](new_tickets_count);
     }
 
     function buy_ticket() public payable {
-        require(_lottery_state == STATE_TICKET_SELLING, "Tickets not selling now");
-        require(_sold_tickets < _tickets_count, "All tickets sell");
-        require(msg.value >= _ticket_price, "Not enought amount");
-        _players[0] = msg.sender;
-        _sold_tickets = _sold_tickets+1;
+        require(lottery_state == STATE_TICKET_SELLING, "Tickets not selling now");
+        require(sold_tickets < tickets_count, "All tickets sell");
+        require(msg.value >= ticket_price, "Not enought amount");
+        sold_tickets = sold_tickets+1;
+        players[sold_tickets] = msg.sender;
+        if (sold_tickets == tickets_count) {
+          start_lottery();
+        }
+    }
+
+    function reward() public only_owner {
+        require(lottery_state == STATE_TICKET_SELLING, "Lottery not started");
+        for (uint32 i=0; i<players.length; i++) {
+            address payable participant_addres = address(uint160(players[i]));
+            participant_addres.transfer(ticket_price);
+        }
+        lottery_state = STATE_STOPPED;
+        sold_tickets = 0;
+    }
+
+    function start_selling() public only_owner {
+        require(lottery_state == STATE_STOPPED, "Lottery already started");
+        lottery_state = STATE_TICKET_SELLING;
     }
 
     function get_lottery_state() public view returns (uint8) {
-        return _lottery_state;
+        return lottery_state;
     }
 
     function get_ticket_price() public view returns (uint256) {
-        return _ticket_price;
+        return ticket_price;
     }
 
     function get_sold_tickets() public view returns (uint32) {
-        return _sold_tickets;
+        return sold_tickets;
     }
 
     function get_tickets_count() public view returns (uint32) {
-        return _tickets_count;
+        return tickets_count;
     }
 
     function get_owner() public view returns (address) {
-      return _owner;
+      return owner;
+    }
+
+    function start_lottery() private payable {
+        require(lottery_state == STATE_TICKET_SELLING, "Lottery not started");
+        require(sold_tickets > 0, "Not sold tickets");
+        uint cush = ticket_price * sold_tickets;
+        uint winner_id = (block.timestamp-1)%(sold_tickets);
+        address payable winner_addres = address(uint160(players[winner_id]));
+        winner_addres.transfer(cush);
+        lottery_state = STATE_STOPPED;
+        sold_tickets = 0;
+        players = new address[](tickets_count);
     }
 }
