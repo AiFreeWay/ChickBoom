@@ -1,126 +1,165 @@
 const DeployedAddresses = require("truffle")["DeployedAddresses"];
 const ChickBoom = artifacts.require("ChickBoom");
 
-contract("EmissionContract", async accounts => {
-  //BUY TICKET
+contract("ChickBoom", async accounts => {
+  //!!! Default ChickBoom creates with 3 ticket and 10000000000000 ticket price
 
-  it("Buy ticket failure - lottery not start", async () => {
-    console.log("ABC")
-    console.log(ChickBoom)
+  it("Credit contract", async () => {
+    let contract = await ChickBoom.deployed();
+    contract.sendTransaction({from: accounts[0], value:1000000000000000})
+  });
+
+  //BUY TICKET FAILURE - SELLING NOT STARTED
+
+  it("Buy ticket failure - lottery not started", async () => {
     let contract = await ChickBoom.deployed();
     let error;
-    await contract.buy_ticket(accounts[1], 1000000000)
+    await contract.buy_ticket({ from: accounts[1], value: 10000000000000 })
       .catch(err => { error = err });
-    assert.ok(error.toString().indexOf("Not enought tokens") > 0);
+    assert.ok(error.toString().indexOf("Lottery not started now") > 0);
   });
 
-  /*it("Buy ticket failure - not enough coins", async () => {
-    let contract = await EmissionErc20.deployed();
+  //REWARD FAILURE - SELLING NOT STARTED
+
+  it("Reward failure - lottery not started", async () => {
+    let contract = await ChickBoom.deployed();
     let error;
-    await contract.transfer(accounts[1], 100000, { from: accounts[1] })
+    await contract.reward({ from: accounts[1]})
+      .catch(err => { error = err });
+    assert.ok(error.toString().indexOf("Lottery not started now") > 0);
+  });
+
+  //LETS WIN FAILURE - SELLING NOT STARTED
+
+  it("Lets winn failure - lottery not started", async () => {
+    let contract = await ChickBoom.deployed();
+    let error;
+    await contract.lets_win({ from: accounts[0]})
+      .catch(err => { error = err });
+    assert.ok(error.toString().indexOf("Lottery not started now") > 0);
+  });
+
+  //START SELLING
+
+  it("Start selling failure - not owner", async () => {
+    let contract = await ChickBoom.deployed();
+    let error;
+    await contract.start_selling({ from: accounts[1]})
       .catch(err => { error = err });
     assert.ok(error.toString().indexOf("Need owner permission") > 0);
   });
 
-  it("Transfer success", async () => {
-    let contract = await EmissionErc20.deployed();
-    await contract.transfer(accounts[1], 100000)
-      .then(() => contract.balanceOf.call(accounts[1]))
-      .then(res => {
-        assert.equal(res, 100000);
-        return contract.balanceOf.call(accounts[0]);
-      })
-      .then(res => assert.equal(res, 2000000))
+  it("Start selling success", async () => {
+    let contract = await ChickBoom.deployed();
+    let lottery_state;
+    await contract.start_selling({ from: accounts[0]})
+      .then(() => contract.get_lottery_state({ from: accounts[1]}))
+      .then(state => { lottery_state = state; });
+    assert.equal(lottery_state, 1);
   });
 
-  //REWARD
+  //BUY TICKET FAILURE - NOT ENOUGHT COINS
 
-  it("Approve failure - invalid value", async () => {
-    let contract = await EmissionErc20.deployed();
+  it("Buy ticket failure - Not enought amount", async () => {
+    let contract = await ChickBoom.deployed();
     let error;
-    await contract.approve(accounts[1], 1000000000, { from: accounts[1] })
+    await contract.buy_ticket({ from: accounts[1], value: 10000 })
       .catch(err => { error = err });
-    assert.ok(error.toString().indexOf("Not enought tokens") > 0);
+    assert.ok(error.toString().indexOf("Not enought amount") > 0);
   });
 
-  it("Approve failure - invalid account", async () => {
-    let contract = await EmissionErc20.deployed();
+  //BUY TICKET SUCCESS
+
+  it("Buy ticket success wallet 1", async () => {
+    let contract = await ChickBoom.deployed();
+    await contract.buy_ticket({ from: accounts[1], value: 10000000000000 })
+      .catch(err => assert.ok(false));
+  });
+
+  //REWARD FAILURE - HAVE NOT TICKETS
+
+  it("Reward failure - have not ticket", async () => {
+    let contract = await ChickBoom.deployed();
     let error;
-    await contract.approve(accounts[4], 1, { from: accounts[3] })
+    await contract.reward({ from: accounts[2]})
       .catch(err => { error = err });
-    assert.ok(error.toString().indexOf("Not enought tokens") > 0);
+    assert.ok(error.toString().indexOf("You have not ticket") > 0);
   });
 
-  it("Approve failure - invalid spender", async () => {
-    let contract = await EmissionErc20.deployed();
+  //REWARD SUCCESS
+
+  it("Reward success", async () => {
+    let contract = await ChickBoom.deployed();
+    await contract.reward({ from: accounts[1]})
+      .catch(err => assert.ok(false));
+  });
+
+  //LETS WIN FAILURE
+
+  it("Lets win failure - not owner", async () => {
+    let contract = await ChickBoom.deployed();
     let error;
-    await contract.approve(accounts[1], 1000, { from: accounts[1] })
-      .catch(err => { error = err });
-    assert.ok(error.toString().indexOf("Sender and spender equal") > 0);
-  });
-
-  it("Approve success", async () => {
-    let contract = await EmissionErc20.deployed();
-    await contract.approve(accounts[2], 1000, { from: accounts[1] })
-      .then(() => contract.allowance.call(accounts[1], accounts[2]))
-      .then(res => assert.equal(res, 1000))
-  });
-
-  //LOTTERY
-
-  it("TransferFrom failure - invalid value", async () => {
-    let contract = await EmissionErc20.deployed();
-    let error;
-    await contract.transferFrom(accounts[1], accounts[2], 1000000000, { from: accounts[4] })
-      .catch(err => { error = err });
-    assert.ok(error.toString().indexOf("Not enought tokens") > 0);
-  });
-
-  it("TransferFrom failure - invalid account from", async () => {
-    let contract = await EmissionErc20.deployed();
-    let error;
-    await contract.transferFrom(accounts[0], accounts[1], 1000, { from: accounts[4] })
-      .catch(err => { error = err });
-    assert.ok(error.toString().indexOf("Not enought tokens") > 0);
-  });
-
-  it("TransferFrom failure - invalid account to", async () => {
-    let contract = await EmissionErc20.deployed();
-    let error;
-    await contract.transferFrom(accounts[1], accounts[3], 1000, { from: accounts[4] })
-      .catch(err => { error = err });
-    assert.ok(error.toString().indexOf("Not enought tokens") > 0);
-  });
-
-  it("TransferFrom success", async () => {
-    let contract = await EmissionErc20.deployed();
-    await contract.transferFrom(accounts[1], accounts[2], 500, { from: accounts[4] })
-      .then(() => contract.allowance.call(accounts[1], accounts[2]))
-      .then(res => {
-        assert.equal(res, 500);
-        return contract.balanceOf.call(accounts[1]);
-      })
-      .then(res => {
-        assert.equal(res, 99500);
-        return contract.balanceOf.call(accounts[2]);
-      })
-      .then(res => assert.equal(res, 500))
-  });
-
-  //CHANGE LOTTERY STATE
-
-  it("Emmission failure - invalid account", async () => {
-    let contract = await EmissionErc20.deployed();
-    let error;
-    await contract.emmission(1000, { from: accounts[1]})
+    await contract.lets_win({ from: accounts[1]})
       .catch(err => { error = err });
     assert.ok(error.toString().indexOf("Need owner permission") > 0);
   });
 
-  it("Emmission success", async () => {
-    let contract = await EmissionErc20.deployed();
-    await contract.emmission(100000)
-    .then(() => contract.balanceOf.call(accounts[0]))
-    .then(res => assert.equal(res, 2100000))
-  });*/
+  it("Lets win - tickets not solded", async () => {
+    let contract = await ChickBoom.deployed();
+    let error;
+    await contract.lets_win()
+      .catch(err => { error = err });
+    assert.ok(error.toString().indexOf("Tickets not solded") > 0);
+  });
+
+  //START LOTTERY
+
+  it("Buy ticket success wallet 2", async () => {
+    let contract = await ChickBoom.deployed();
+    await contract.buy_ticket({ from: accounts[2], value: 10000000000000 })
+      .catch(err => assert.ok(false));
+  });
+
+  it("Buy ticket success wallet 3 and finish lottery", async () => {
+    let contract = await ChickBoom.deployed();
+    let winner_address;
+    let winner_balance_before_win;
+    await contract.buy_ticket({ from: accounts[3], value: 10000000000000 })
+      .then(() => contract.lets_win())
+      .then(() => contract.get_lottery_state())
+      .then(state => assert.equal(state, 0))
+      .then(() => contract.getPastEvents('WinEvent', { fromBlock: 0, toBlock: 'latest' }))
+      .then(events => {
+        assert.equal(events[0].returnValues.cush, 30000000000000);
+        assert.equal(events[0].returnValues.round, 1);
+        winner_address = events[0].returnValues.winner;
+      })
+      .then(() => web3.eth.getBalance(winner_address))
+      .then(balance => {
+        winner_balance_before_win = balance;
+      })
+      .then(() => {
+        return contract.get_cush(1, { from: winner_address})
+      })
+      .then(() => web3.eth.getBalance(winner_address))
+      .then(balance => {
+        assert.ok(balance > winner_balance_before_win);
+      })
+  });
+
+  it("Get cush failure - not cush", async () => {
+    let contract = await ChickBoom.deployed();
+    let error;
+    await contract.get_cush(0, { from: accounts[0]})
+      .catch(err => { error = err });
+    assert.ok(error.toString().indexOf("You have not cush") > 0);
+
+    await contract.get_cush(1, { from: accounts[1]})
+      .catch(err => { error = err });
+    assert.ok(error.toString().indexOf("You have not cush") > 0);
+
+    await contract.get_cush(2, { from: accounts[2]})
+      .catch(err => { error = err });
+    assert.ok(error.toString().indexOf("You have not cush") > 0);
+  });
 });
