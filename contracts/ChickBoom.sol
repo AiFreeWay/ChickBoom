@@ -19,22 +19,22 @@ contract ChickBoom {
     _;
   }
 
-  modifier is_lottery_started() {
-    require(lottery_state == State.Started, "Lottery not started now");
+  modifier state_must(State state) {
+    require(lottery_state == state, "Invalid state");
     _;
   }
 
-  enum State { Stopped, Started }
+  enum State { WaitingForStart, WaitingForSellingEnd, WaitingForWin }
 
   address payable private owner;
   uint256 private ticket_price;
   uint32 private tickets_count;
   uint32 private sold_tickets = 0;
   uint private round = 0;
-  State private lottery_state = State.Stopped;
+  State private lottery_state = State.WaitingForStart;
 
   address[] private players_addresses;
-  bool[] private players_states;
+  mapping (address => bool) private players;
   mapping (uint => Win) private winners;
 
 
@@ -44,54 +44,69 @@ contract ChickBoom {
     ticket_price = new_ticket_price;
   }
 
-  function start_selling() external only_owner {
-    require(lottery_state == State.Stopped, "Lottery already started");
-    lottery_state = State.Started;
+  function start_selling() external only_owner state_must(State.WaitingForStart) {
+    lottery_state = State.WaitingForSellingEnd;
     sold_tickets = 0;
     round = round+1;
-    players_addresses = new address[](tickets_count);
-    players_states = new bool[](tickets_count);
+
+    for (uint i=0; i<players_addresses.length; i++) {
+      delete players[players_addresses[i]];
+    }
+
+    delete players_addresses;
   }
 
-  function buy_ticket() external is_lottery_started payable {
+  function buy_ticket() external state_must(State.WaitingForSellingEnd) payable {
     require(msg.value >= ticket_price, "Not enought amount");
-    players_addresses[sold_tickets] = msg.sender;
-    players_states[sold_tickets] = true;
+    players[msg.sender] = true;
     sold_tickets = sold_tickets+1;
+    players_addresses.push(msg.sender);
+    if (tickets_count == sold_tickets) {
+      lottery_state = State.WaitingForWin;
+    }
   }
 
-  function reward() external is_lottery_started payable {
-    for (uint32 i=0; i<sold_tickets; i++) {
-      address reward_addr = players_addresses[i];
-      if (reward_addr == msg.sender) {
-        address payable player_addres = address(uint160(reward_addr));
-        player_addres.transfer(ticket_price);
-        players_states[i] = false;
-        return;
-      }
+  function reward() external state_must(State.WaitingForSellingEnd) payable {
+    if (players[msg.sender]) {
+      address payable player_address = address(uint160(msg.sender));
+      player_address.transfer(ticket_price);
+      delete players[msg.sender];
+      sold_tickets = sold_tickets-1;
+      return;
+    } else {
+      revert("You have not ticket");
     }
-    revert("You have not ticket");
   }
 
-  function lets_win() external is_lottery_started only_owner {
-    require(sold_tickets == tickets_count, "Tickets not solded");
-    uint cush = ticket_price * sold_tickets;
-    uint winner_id = (block.timestamp-1)%(sold_tickets);
-    while (!players_states[winner_id]) {
-      winner_id = (block.timestamp-1)%(sold_tickets);
-    }
+  function lets_win() external only_owner state_must(State.WaitingForWin) {
+    uint cush = ticket_price * tickets_count;
+    uint winner_id = (block.timestamp-1)%(tickets_count);
     address winner_address = players_addresses[winner_id];
     winners[round] = Win({addr: winner_address, cush: cush});
-    lottery_state = State.Stopped;
+    lottery_state = State.WaitingForStart;
     emit WinEvent(winner_address, round, cush);
   }
 
-  function get_cush(uint _round) external payable {
-    Win memory winner = winners[_round];
+  function get_cush(uint winner_round) external payable {
+    Win memory winner = winners[winner_round];
     require(winner.addr == msg.sender, "You have not cush");
     address payable winner_address = address(uint160(msg.sender));
     winner_address.transfer(winner.cush);
-    delete winners[_round];
+    delete winners[winner_round];
+  }
+
+  //Outut founds
+
+  function output_founds(uint256 value) external only_owner {
+    owner.transfer(value);
+  }
+
+  function change_ticket_price(uint256 new_price) external only_owner state_must(State.WaitingForStart) {
+    ticket_price = new_price;
+  }
+
+  function change_tickets_count(uint32 new_count) external only_owner state_must(State.WaitingForStart) {
+    tickets_count = new_count;
   }
 
   function get_lottery_state() public view returns (State) {
