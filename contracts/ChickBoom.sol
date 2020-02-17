@@ -5,13 +5,13 @@ contract ChickBoom {
 
   struct Win {
     address addr;
-    uint cush;
+    uint256 cush;
   }
 
   event WinEvent(
     address indexed winner,
-    uint round,
-    uint cush
+    uint32 round,
+    uint256 cush
   );
 
   modifier only_owner() {
@@ -32,12 +32,12 @@ contract ChickBoom {
   uint256 private ticket_price;
   uint32 private tickets_count;
   uint32 private sold_tickets = 0;
-  uint private round = 0;
+  uint32 private round = 0;
   State private lottery_state = State.WaitingForStart;
 
   address[] private players_addresses;
   mapping (address => bool) private players;
-  mapping (uint => Win) private winners;
+  mapping (uint32 => Win) private winners;
 
 
   constructor(uint32 new_tickets_count, uint256 new_ticket_price, uint256 new_owner_reward) public {
@@ -52,7 +52,7 @@ contract ChickBoom {
     sold_tickets = 0;
     round = round+1;
 
-    for (uint i=0; i<players_addresses.length; i++) {
+    for (uint32 i=0; i<players_addresses.length; i++) {
       delete players[players_addresses[i]];
     }
 
@@ -82,8 +82,8 @@ contract ChickBoom {
   }
 
   function lets_win() external only_owner state_must(State.WaitingForWin) {
-    uint cush = ticket_price * tickets_count;
-    uint winner_id = (block.timestamp-1)%(tickets_count);
+    uint256 cush = ticket_price * tickets_count;
+    uint32 winner_id = uint32((block.timestamp-1)%(tickets_count));
     address winner_address = players_addresses[winner_id];
     winners[round] = Win({addr: winner_address, cush: cush});
     lottery_state = State.WaitingForStart;
@@ -91,7 +91,7 @@ contract ChickBoom {
     emit WinEvent(winner_address, round, cush-owner_round_reward);
   }
 
-  function get_cush(uint winner_round) external payable {
+  function get_cush(uint32 winner_round) external payable {
     Win memory winner = winners[winner_round];
     require(winner.addr == msg.sender, "You have not cush");
     address payable winner_address = address(uint160(msg.sender));
