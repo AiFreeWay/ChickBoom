@@ -2,11 +2,11 @@ const DeployedAddresses = require("truffle")["DeployedAddresses"];
 const ChickBoom = artifacts.require("ChickBoom");
 
 contract("ChickBoom", async accounts => {
-  //!!! Default ChickBoom creates with 3 ticket and 10000000000000 ticket price
+  //!!! Default ChickBoom creates with 3 ticket, 100000000000000 ticket price and 10000000000000 owner round refound
 
   it("Credit contract", async () => {
     let contract = await ChickBoom.deployed();
-    contract.sendTransaction({from: accounts[0], value:50000000000000000})
+    contract.sendTransaction({ from: accounts[0], value: 50000000000000000, gasPrice: 1000000000 })
   });
 
   //BUY TICKET FAILURE - SELLING NOT STARTED
@@ -14,17 +14,17 @@ contract("ChickBoom", async accounts => {
   it("Buy ticket failure - lottery not started", async () => {
     let contract = await ChickBoom.deployed();
     let error;
-    await contract.buy_ticket({ from: accounts[1], value: 1000000000000000 })
+    await contract.buy_ticket({ from: accounts[1], value: 100000000000000, gasPrice: 1000000000 })
       .catch(err => { error = err });
     assert.ok(error.toString().indexOf("Invalid state") > 0);
   });
 
-  //REWARD FAILURE - SELLING NOT STARTED
+  //REFOUND FAILURE - SELLING NOT STARTED
 
-  it("Reward failure - lottery not started", async () => {
+  it("Refound failure - lottery not started", async () => {
     let contract = await ChickBoom.deployed();
     let error;
-    await contract.reward({ from: accounts[1]})
+    await contract.refound({ from: accounts[1]})
       .catch(err => { error = err });
     assert.ok(error.toString().indexOf("Invalid state") > 0);
   });
@@ -44,7 +44,7 @@ contract("ChickBoom", async accounts => {
   it("Start selling failure - not owner", async () => {
     let contract = await ChickBoom.deployed();
     let error;
-    await contract.start_selling({ from: accounts[1]})
+    await contract.start_selling({ from: accounts[1], gasPrice: 1000000000 })
       .catch(err => { error = err });
     assert.ok(error.toString().indexOf("Need owner permission") > 0);
   });
@@ -52,8 +52,8 @@ contract("ChickBoom", async accounts => {
   it("Start selling success", async () => {
     let contract = await ChickBoom.deployed();
     let lottery_state;
-    await contract.start_selling({ from: accounts[0]})
-      .then(() => contract.get_lottery_state({ from: accounts[1]}))
+    await contract.start_selling({ from: accounts[0], gasPrice: 1000000000 })
+      .then(() => contract.get_lottery_state({ from: accounts[1], gasPrice: 1000000000 }))
       .then(state => { lottery_state = state; });
     assert.equal(lottery_state, 1);
   });
@@ -61,7 +61,7 @@ contract("ChickBoom", async accounts => {
   it("Start selling failure - already started", async () => {
     let contract = await ChickBoom.deployed();
     let error;
-    await contract.start_selling({ from: accounts[0]})
+    await contract.start_selling({ from: accounts[0], gasPrice: 1000000000 })
       .catch(err => { error = err });
     assert.ok(error.toString().indexOf("Invalid state") > 0);
   });
@@ -71,7 +71,7 @@ contract("ChickBoom", async accounts => {
   it("Buy ticket failure - Not enought amount", async () => {
     let contract = await ChickBoom.deployed();
     let error;
-    await contract.buy_ticket({ from: accounts[1], value: 10000 })
+    await contract.buy_ticket({ from: accounts[1], value: 10000, gasPrice: 1000000000 })
       .catch(err => { error = err });
     assert.ok(error.toString().indexOf("Not enought amount") > 0);
   });
@@ -80,25 +80,25 @@ contract("ChickBoom", async accounts => {
 
   it("Buy ticket success wallet 1", async () => {
     let contract = await ChickBoom.deployed();
-    await contract.buy_ticket({ from: accounts[1], value: 1000000000000000 })
+    await contract.buy_ticket({ from: accounts[1], value: 100000000000000, gasPrice: 1000000000 })
       .catch(err => assert.ok(false));
   });
 
-  //REWARD FAILURE - HAVE NOT TICKETS
+  //REFOUND FAILURE - HAVE NOT TICKETS
 
-  it("Reward failure - have not ticket", async () => {
+  it("Refound failure - have not ticket", async () => {
     let contract = await ChickBoom.deployed();
     let error;
-    await contract.reward({ from: accounts[2]})
+    await contract.refound({ from: accounts[2]})
       .catch(err => { error = err });
     assert.ok(error.toString().indexOf("You have not ticket") > 0);
   });
 
-  //REWARD SUCCESS
+  //REFOUND SUCCESS
 
-  it("Reward success", async () => {
+  it("Refound success", async () => {
     let contract = await ChickBoom.deployed();
-    await contract.reward({ from: accounts[1]})
+    await contract.refound({ from: accounts[1]})
       .catch(err => assert.ok(false));
   });
 
@@ -124,13 +124,13 @@ contract("ChickBoom", async accounts => {
 
   it("Buy ticket success wallet 1", async () => {
     let contract = await ChickBoom.deployed();
-    await contract.buy_ticket({ from: accounts[1], value: 1000000000000000 })
+    await contract.buy_ticket({ from: accounts[1], value: 100000000000000, gasPrice: 1000000000 })
       .catch(err => assert.ok(false));
   });
 
   it("Buy ticket success wallet 2", async () => {
     let contract = await ChickBoom.deployed();
-    await contract.buy_ticket({ from: accounts[2], value: 1000000000000000 })
+    await contract.buy_ticket({ from: accounts[2], value: 100000000000000, gasPrice: 1000000000 })
       .catch(err => assert.ok(false));
   });
 
@@ -138,8 +138,8 @@ contract("ChickBoom", async accounts => {
     let contract = await ChickBoom.deployed();
     let winner_address;
     let winner_balance_before_win;
-    await contract.buy_ticket({ from: accounts[3], value: 1000000000000000 })
-      .then(() => contract.buy_ticket({ from: accounts[4], value: 1000000000000000 }))
+    await contract.buy_ticket({ from: accounts[3], value: 100000000000000, gasPrice: 1000000000 })
+      .then(() => contract.buy_ticket({ from: accounts[4], value: 100000000000000, gasPrice: 1000000000 }))
       .catch(err => {
         assert.ok(err.toString().indexOf("Invalid state") > 0);
         return contract.lets_win();
@@ -148,7 +148,7 @@ contract("ChickBoom", async accounts => {
       .then(state => assert.equal(state, 0))
       .then(() => contract.getPastEvents('WinEvent', { fromBlock: 0, toBlock: 'latest' }))
       .then(events => {
-        assert.equal(events[0].returnValues.cush, 3000000000000000);
+        assert.equal(events[0].returnValues.cush, 290000000000000);
         assert.equal(events[0].returnValues.round, 1);
         winner_address = events[0].returnValues.winner;
       })
@@ -156,24 +156,30 @@ contract("ChickBoom", async accounts => {
       .then(balance => {
         winner_balance_before_win = balance;
       })
-      .then(() => contract.get_cush(1, { from: winner_address}))
+      .then(() => contract.get_cush(1, { from: winner_address, gasPrice: 1000000000 }))
       .then(() => web3.eth.getBalance(winner_address))
-      .then(balance => {
-        assert.ok(balance > winner_balance_before_win);
-      })
+      .then(balance => assert.ok(balance > winner_balance_before_win))
   });
 
-  //OUTPUT FOUNDS
+  //REWARD FOR OWNER
 
-  it("Output founds - not owner", async () => {
+  it("Reward for owner - not owner", async () => {
     let contract = await ChickBoom.deployed();
     let error;
-    await contract.output_founds(1000000000000000, { from: accounts[1] })
+    await contract.reward_for_owner(10000000000000, { from: accounts[1], gasPrice: 1000000000 })
       .catch(err => { error = err });
     assert.ok(error.toString().indexOf("Need owner permission") > 0);
   });
 
-  it("Outut founds", async () => {
+  it("Reward for owner - not enought coins", async () => {
+    let contract = await ChickBoom.deployed();
+    let error;
+    await contract.reward_for_owner(100000000000000, { from: accounts[0], gasPrice: 1000000000 })
+      .catch(err => { error = err });
+    assert.ok(error.toString().indexOf("Not enought coins") > 0);
+  });
+
+  it("Reward for owner success", async () => {
     let contract = await ChickBoom.deployed();
     let balance_before_output;
     await web3.eth.getBalance(accounts[0])
@@ -181,26 +187,24 @@ contract("ChickBoom", async accounts => {
         balance_before_output = balance;
       })
       .then(() => {
-        return contract.output_founds(1000000000000000, { from: accounts[0] })
+        return contract.reward_for_owner(10000000000000, { from: accounts[0], gasPrice: 100000000 })
       })
       .then(() => web3.eth.getBalance(accounts[0]))
-      .then(balance => {
-        assert.ok(balance > balance_before_output);
-      })
+      .then(balance => assert.ok(balance > balance_before_output))
   });
 
   it("Get cush failure - not cush", async () => {
     let contract = await ChickBoom.deployed();
     let error;
-    await contract.get_cush(0, { from: accounts[0]})
+    await contract.get_cush(0, { from: accounts[0], gasPrice: 1000000000})
       .catch(err => { error = err });
     assert.ok(error.toString().indexOf("You have not cush") > 0);
 
-    await contract.get_cush(1, { from: accounts[1]})
+    await contract.get_cush(1, { from: accounts[1], gasPrice: 1000000000})
       .catch(err => { error = err });
     assert.ok(error.toString().indexOf("You have not cush") > 0);
 
-    await contract.get_cush(2, { from: accounts[2]})
+    await contract.get_cush(2, { from: accounts[2], gasPrice: 1000000000})
       .catch(err => { error = err });
     assert.ok(error.toString().indexOf("You have not cush") > 0);
   });

@@ -27,6 +27,8 @@ contract ChickBoom {
   enum State { WaitingForStart, WaitingForSellingEnd, WaitingForWin }
 
   address payable private owner;
+  uint256 private owner_round_reward;
+  uint256 private owner_total_reward = 0;
   uint256 private ticket_price;
   uint32 private tickets_count;
   uint32 private sold_tickets = 0;
@@ -38,10 +40,11 @@ contract ChickBoom {
   mapping (uint => Win) private winners;
 
 
-  constructor(uint32 new_tickets_count, uint256 new_ticket_price) public {
+  constructor(uint32 new_tickets_count, uint256 new_ticket_price, uint256 new_owner_reward) public {
     owner = msg.sender;
     tickets_count = new_tickets_count;
     ticket_price = new_ticket_price;
+    owner_round_reward = new_owner_reward;
   }
 
   function start_selling() external only_owner state_must(State.WaitingForStart) {
@@ -66,7 +69,7 @@ contract ChickBoom {
     }
   }
 
-  function reward() external state_must(State.WaitingForSellingEnd) payable {
+  function refound() external state_must(State.WaitingForSellingEnd) payable {
     if (players[msg.sender]) {
       address payable player_address = address(uint160(msg.sender));
       player_address.transfer(ticket_price);
@@ -84,7 +87,8 @@ contract ChickBoom {
     address winner_address = players_addresses[winner_id];
     winners[round] = Win({addr: winner_address, cush: cush});
     lottery_state = State.WaitingForStart;
-    emit WinEvent(winner_address, round, cush);
+    owner_total_reward = owner_total_reward+owner_round_reward;
+    emit WinEvent(winner_address, round, cush-owner_round_reward);
   }
 
   function get_cush(uint winner_round) external payable {
@@ -95,9 +99,8 @@ contract ChickBoom {
     delete winners[winner_round];
   }
 
-  //Outut founds
-
-  function output_founds(uint256 value) external only_owner {
+  function reward_for_owner(uint256 value) external only_owner {
+    require(owner_total_reward >= value, "Not enought coins");
     owner.transfer(value);
   }
 
@@ -129,8 +132,12 @@ contract ChickBoom {
     return owner;
   }
 
-  function get_round() public view returns (uint) {
+  function get_round() public view returns (uint256) {
     return round;
+  }
+
+  function get_owner_round_reward() public view returns (uint256) {
+    return owner_round_reward;
   }
 
   fallback() external payable {}
